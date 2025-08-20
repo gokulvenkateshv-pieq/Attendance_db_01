@@ -9,6 +9,9 @@ import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import org.example.dto.CheckInRequest
+import org.example.dto.CheckOutRequest
+
 
 @Path("/attendance")
 @Produces(MediaType.APPLICATION_JSON)
@@ -18,13 +21,18 @@ class AttendanceResource(private val employeeService: EmployeeService) {
     private val log = LoggerFactory.getLogger(AttendanceResource::class.java)
 
     // -------------------- Check-in --------------------
+
     @POST
     @Path("/checkin")
-    fun checkIn(
-        @QueryParam("employeeId") employeeId: String,
-        @QueryParam("dateTime") dateTimeStr: String?
-    ): Response {
-        val dateTime = dateTimeStr?.let {
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun checkIn(request: CheckInRequest): Response {
+        if (request.employeeId.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(mapOf("error" to "employeeId is required"))
+                .build()
+        }
+
+        val dateTime = request.dateTime?.let {
             try {
                 LocalDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME)
             } catch (e: Exception) {
@@ -34,18 +42,22 @@ class AttendanceResource(private val employeeService: EmployeeService) {
             }
         }
 
-        val (status, body) = employeeService.checkIn(employeeId, dateTime)
+        val (status, body) = employeeService.checkIn(request.employeeId, dateTime)
         return Response.status(status).entity(body).build()
     }
+
 
     // -------------------- Check-out --------------------
     @PUT
     @Path("/checkout")
-    fun checkOut(
-        @QueryParam("employeeId") employeeId: String,
-        @QueryParam("dateTime") dateTimeStr: String?
-    ): Response {
-        val dateTime = dateTimeStr?.let {
+    fun checkOut(request: CheckOutRequest): Response {
+        if (request.employeeId.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(mapOf("error" to "employeeId is required"))
+                .build()
+        }
+
+        val dateTime = request.dateTime?.let {
             try {
                 LocalDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME)
             } catch (e: Exception) {
@@ -55,7 +67,7 @@ class AttendanceResource(private val employeeService: EmployeeService) {
             }
         }
 
-        val (status, body) = employeeService.checkOut(employeeId, dateTime)
+        val (status, body) = employeeService.checkOut(request.employeeId, dateTime)
         return Response.status(status).entity(body).build()
     }
 

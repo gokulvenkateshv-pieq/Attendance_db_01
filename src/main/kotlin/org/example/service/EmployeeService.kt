@@ -80,7 +80,24 @@ class EmployeeService(
 
     fun checkIn(employeeId: String, dateTime: LocalDateTime? = null): Pair<Response.Status, Any> {
         return try {
-            val now = dateTime ?: LocalDateTime.now()
+            //  Validate employee exists
+            val emp = employeeDao.getById(employeeId)
+            if (emp == null) {
+                return Response.Status.NOT_FOUND to mapOf("error" to "Employee ID $employeeId does not exist")
+            }
+
+            //  Determine check-in time (rounded to minute)
+            val now = (dateTime ?: LocalDateTime.now()).withSecond(0).withNano(0)
+
+            //  Check for duplicate timestamp at the same minute
+            val sameTimeAttendance = attendanceDao.findByEmployeeAndDate(employeeId, now.toLocalDate())
+                .any { it.dateTimeOfCheckIn.withSecond(0).withNano(0) == now }
+
+            if (sameTimeAttendance) {
+                return Response.Status.CONFLICT to mapOf("error" to "Cannot check in multiple times at the same minute")
+            }
+
+            //  Insert attendance
             val attendance = Attendance(employeeId, now)
             attendanceDao.insert(attendance)
             Response.Status.CREATED to attendance
@@ -91,20 +108,16 @@ class EmployeeService(
     }
 
     fun checkOut(employeeId: String, dateTime: LocalDateTime? = null): Pair<Response.Status, Any> {
-        return try {
-            val openAttendance = attendanceDao.findOpenAttendance(employeeId)
-            if (openAttendance == null) {
-                Response.Status.NOT_FOUND to mapOf("error" to "No active check-in found")
-            } else {
-                openAttendance.checkOut(dateTime ?: LocalDateTime.now())
-                attendanceDao.insert(openAttendance) // or use update method if implemented
-                Response.Status.OK to openAttendance
-            }
-        } catch (e: Exception) {
-            log.error("Error during check-out", e)
-            Response.Status.CONFLICT to mapOf("error" to (e.message ?: "Unknown error"))
-        }
+        val today = LocalDate.now()
+        val openAttendance = attendanceDao.findOpenAttendanceForToday(employeeId, today)
+            ?: return Response.Status.NOT_FOUND to mapOf("error" to "No active check-in found for today")
+
+        val now = (dateTime ?: LocalDateTime.now()).withSecond(0).withNano(0)
+        openAttendance.checkOut(now)
+        attendanceDao.update(openAttendance)
+        return Response.Status.OK to openAttendance
     }
+
 
     fun getAttendance(employeeId: String?, date: LocalDate?): List<Attendance> {
         return if (employeeId != null && date != null) {
