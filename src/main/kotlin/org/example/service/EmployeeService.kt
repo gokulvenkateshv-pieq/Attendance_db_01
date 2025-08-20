@@ -65,16 +65,6 @@ class EmployeeService(
         }
     }
 
-    fun login(employeeId: String, password: String): Pair<Response.Status, Any> {
-        val emp = employeeDao.getById(employeeId)
-        return if (emp == null) {
-            Response.Status.NOT_FOUND to mapOf("error" to "Employee not found")
-        } else if (password != "password123") { // replace with real auth logic
-            Response.Status.UNAUTHORIZED to mapOf("error" to "Invalid credentials")
-        } else {
-            Response.Status.OK to emp
-        }
-    }
 
     // -------------------- Attendance --------------------
 
@@ -127,3 +117,4 @@ class EmployeeService(
         }
     }
 }
+

@@ -1,9 +1,6 @@
+package org.example.dto
 
-    package org.example.dto
-
-    import java.time.LocalDateTime
-
-    data class CheckOutRequest(
+data class CheckOutRequest(
         val employeeId: String,
         val dateTime: String? = null
     )

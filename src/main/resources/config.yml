@@ -11,6 +11,5 @@ database:
   url: jdbc:postgresql://localhost:5432/api_db
   user: postgres
   password: postgres
-
 logging:
   level: INFO

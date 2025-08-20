@@ -3,7 +3,6 @@ package org.example.dao
 import org.jdbi.v3.core.Jdbi
 import org.example.model.Attendance
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 class AttendanceDAO(private val jdbi: Jdbi) {
 
@@ -34,42 +33,28 @@ class AttendanceDAO(private val jdbi: Jdbi) {
 
 
     fun findByEmployeeAndDate(employeeId: String, date: LocalDate): List<Attendance> {
+        val start = date.atStartOfDay()
+        val end = date.plusDays(1).atStartOfDay()
         return jdbi.withHandle<List<Attendance>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT employee_id AS "employeeId",
-                       check_in_time AS "dateTimeOfCheckIn",
-                       check_out_time AS "dateTimeOfCheckOut",
-                       worked_hours AS "workedHours"
-                FROM attendance
-                WHERE employee_id = :employeeId AND DATE(check_in_time) = :date
-                """
+            SELECT employee_id AS "employeeId",
+                   check_in_time AS "dateTimeOfCheckIn",
+                   check_out_time AS "dateTimeOfCheckOut",
+                   worked_hours AS "workedHours"
+            FROM attendance
+            WHERE employee_id = :employeeId
+              AND check_in_time >= :start AND check_in_time < :end
+            """
             )
                 .bind("employeeId", employeeId)
-                .bind("date", date)
+                .bind("start", start)
+                .bind("end", end)
                 .mapTo(Attendance::class.java)
                 .list()
         }
     }
 
-    fun findOpenAttendance(employeeId: String): Attendance? {
-        return jdbi.withHandle<Attendance?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT employee_id AS "employeeId",
-                       check_in_time AS "dateTimeOfCheckIn",
-                       check_out_time AS "dateTimeOfCheckOut",
-                       worked_hours AS "workedHours"
-                FROM attendance
-                WHERE employee_id = :employeeId AND check_out_time IS NULL
-                """
-            )
-                .bind("employeeId", employeeId)
-                .mapTo(Attendance::class.java)
-                .findOne()
-                .orElse(null)
-        }
-    }
 
     fun findOpenAttendanceForToday(employeeId: String, date: LocalDate): Attendance? {
         return jdbi.withHandle<Attendance?, Exception> { handle ->
@@ -94,5 +79,6 @@ class AttendanceDAO(private val jdbi: Jdbi) {
                 .orElse(null)
         }
     }
+
 
 }
