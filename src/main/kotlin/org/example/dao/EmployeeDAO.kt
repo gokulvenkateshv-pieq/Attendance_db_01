@@ -49,22 +49,20 @@ class EmployeeDAO(private val jdbi: Jdbi) {
         }
     }
 
-    fun getAll(limit: Int = 20): List<Employee> {
-        log.info("Fetching all employees, limit={}", limit)
+    fun getAll(): List<Employee> {
+        log.info("Fetching all employees")
         return jdbi.withHandle<List<Employee>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT employee_id AS "employeeId",
-                       first_name AS "firstName",
-                       last_name AS "lastName",
-                       role_id AS "role",
-                       department_id AS "department",
-                       reporting_to AS "reportingTo"
-                FROM employee
-                LIMIT :limit
-                """
+            SELECT employee_id AS "employeeId",
+                   first_name AS "firstName",
+                   last_name AS "lastName",
+                   role_id AS "role",
+                   department_id AS "department",
+                   reporting_to AS "reportingTo"
+            FROM employee
+            """
             )
-                .bind("limit", limit)
                 .mapTo(Employee::class.java)
                 .list()
         }

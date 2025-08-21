@@ -1,59 +1,54 @@
 package org.example.service
 
+// Importing configuration and DAOs
 import org.example.config.AttendanceConfiguration
 import org.example.dao.EmployeeDAO
 import org.example.dao.AttendanceDAO
+
+// Importing REST resources
 import org.example.resource.EmployeeResource
 import org.example.resource.AttendanceResource
 
+// Dropwizard core classes
 import io.dropwizard.core.Application
 import io.dropwizard.core.setup.Bootstrap
 import io.dropwizard.core.setup.Environment
 import io.dropwizard.jdbi3.JdbiFactory
 
+// JDBI database library
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.sqlobject.SqlObjectPlugin
-import org.jdbi.v3.core.kotlin.KotlinPlugin
+
+// Jackson modules for Kotlin and Java Time
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.databind.SerializationFeature
 
-import org.eclipse.jetty.servlets.CrossOriginFilter
-import java.util.EnumSet
-
 class AttendanceApplication : Application<AttendanceConfiguration>() {
 
     override fun initialize(bootstrap: Bootstrap<AttendanceConfiguration>) {
-        // Configure Jackson modules
         bootstrap.objectMapper.registerModule(kotlinModule())
         bootstrap.objectMapper.registerModule(JavaTimeModule())
         bootstrap.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     }
 
     override fun run(configuration: AttendanceConfiguration, environment: Environment) {
-        // Setup JDBI
+        // Setup JDBI database connection using the configuration
         val jdbi: Jdbi = JdbiFactory().build(environment, configuration.database, "postgresql")
-        jdbi.installPlugin(SqlObjectPlugin())
-        jdbi.installPlugin(KotlinPlugin())
 
-        // Initialize DAOs
+
+        jdbi.installPlugin(org.jdbi.v3.core.kotlin.KotlinPlugin())
+
+        // Initialize DAOs for Employee and Attendance
         val employeeDao = EmployeeDAO(jdbi)
         val attendanceDao = AttendanceDAO(jdbi)
 
-        // Initialize service
+        // Initialize service layer with DAOs
         val employeeService = EmployeeService(employeeDao, attendanceDao)
 
-        // Register resources
+        // Register REST resources with Jersey (HTTP endpoints)
         environment.jersey().register(EmployeeResource(employeeService))
         environment.jersey().register(AttendanceResource(employeeService))
 
-        // Enable CORS
-        val cors = environment.servlets().addFilter("CORS", CrossOriginFilter::class.java)
-        cors.setInitParameter(CrossOriginFilter.ALLOWED_ORIGINS_PARAM, "http://localhost:3000")
-        cors.setInitParameter(CrossOriginFilter.ALLOWED_HEADERS_PARAM, "X-Requested-With,Content-Type,Accept,Origin,Authorization")
-        cors.setInitParameter(CrossOriginFilter.ALLOWED_METHODS_PARAM, "OPTIONS,GET,PUT,POST,DELETE,HEAD")
-        cors.setInitParameter(CrossOriginFilter.ALLOW_CREDENTIALS_PARAM, "true")
-        cors.addMappingForUrlPatterns(EnumSet.allOf(jakarta.servlet.DispatcherType::class.java), true, "/*")
     }
 }
 

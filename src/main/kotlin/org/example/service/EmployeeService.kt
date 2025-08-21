@@ -6,7 +6,6 @@ import org.example.model.Role
 import org.example.model.Department
 import org.example.model.Attendance
 import org.example.dao.AttendanceDAO
-import jakarta.ws.rs.core.Response
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -19,13 +18,7 @@ class EmployeeService(
 
     // -------------------- Employee CRUD --------------------
 
-    fun addEmployee(
-        firstName: String,
-        lastName: String,
-        role: Role,
-        department: Department,
-        reportingTo: String?
-    ): Pair<Response.Status, Any> {
+    fun addEmployee(firstName: String, lastName: String, role: Role, department: Department, reportingTo: String?): Employee {
         val emp = Employee(
             firstName = firstName,
             lastName = lastName,
@@ -33,88 +26,63 @@ class EmployeeService(
             department = department.name,
             reportingTo = reportingTo
         )
-
-        return try {
-            emp.generateId() // ensure employeeId is generated
-            employeeDao.insert(emp, role.ordinal + 1, department.ordinal + 1)
-            log.info("Employee added successfully id=${emp.employeeId}")
-            Response.Status.CREATED to emp
-        } catch (e: Exception) {
-            log.error("Error inserting employee", e)
-            Response.Status.CONFLICT to mapOf("error" to (e.message ?: "Unknown error"))
-        }
+        emp.generateId()
+        employeeDao.insert(emp, role.ordinal + 1, department.ordinal + 1)
+        log.info("Employee added successfully id=${emp.employeeId}")
+        return emp
     }
 
-    fun getEmployee(id: String): Pair<Response.Status, Any> {
-        val emp = employeeDao.getById(id)
-        return if (emp != null) {
-            Response.Status.OK to emp
-        } else {
-            Response.Status.NOT_FOUND to mapOf("error" to "Employee not found")
-        }
+    fun getEmployee(id: String): Employee {
+        return employeeDao.getById(id) ?: throw NoSuchElementException("Employee not found")
     }
 
-    fun getAllEmployees(limit: Int = 20): List<Employee> = employeeDao.getAll(limit)
+    fun getAllEmployees(): List<Employee> = employeeDao.getAll()
 
-    fun deleteEmployee(id: String): Pair<Response.Status, Any> {
+    fun deleteEmployee(id: String) {
         val deleted = employeeDao.delete(id)
-        return if (deleted > 0) {
-            Response.Status.OK to mapOf("message" to "Employee deleted successfully")
-        } else {
-            Response.Status.NOT_FOUND to mapOf("error" to "Employee not found")
-        }
+        if (deleted == 0) throw NoSuchElementException("Employee not found")
     }
-
 
     // -------------------- Attendance --------------------
 
-    fun checkIn(employeeId: String, dateTime: LocalDateTime? = null): Pair<Response.Status, Any> {
-        return try {
-            //  Validate employee exists
-            val emp = employeeDao.getById(employeeId)
-            if (emp == null) {
-                return Response.Status.NOT_FOUND to mapOf("error" to "Employee ID $employeeId does not exist")
-            }
+    fun checkIn(employeeId: String, dateTime: LocalDateTime? = null): Attendance {
+        val emp = employeeDao.getById(employeeId) ?: throw NoSuchElementException("Employee ID $employeeId does not exist")
+        val now = (dateTime ?: LocalDateTime.now()).withSecond(0).withNano(0)
 
-            //  Determine check-in time (rounded to minute)
-            val now = (dateTime ?: LocalDateTime.now()).withSecond(0).withNano(0)
+        val sameTimeAttendance = attendanceDao.findByEmployeeAndDate(employeeId, now.toLocalDate())
+            .any { it.dateTimeOfCheckIn.withSecond(0).withNano(0) == now }
 
-            //  Check for duplicate timestamp at the same minute
-            val sameTimeAttendance = attendanceDao.findByEmployeeAndDate(employeeId, now.toLocalDate())
-                .any { it.dateTimeOfCheckIn.withSecond(0).withNano(0) == now }
+        if (sameTimeAttendance) throw IllegalStateException("Cannot check in multiple times at the same minute")
 
-            if (sameTimeAttendance) {
-                return Response.Status.CONFLICT to mapOf("error" to "Cannot check in multiple times at the same minute")
-            }
-
-            //  Insert attendance
-            val attendance = Attendance(employeeId, now)
-            attendanceDao.insert(attendance)
-            Response.Status.CREATED to attendance
-        } catch (e: Exception) {
-            log.error("Error during check-in", e)
-            Response.Status.CONFLICT to mapOf("error" to (e.message ?: "Unknown error"))
-        }
+        val attendance = Attendance(employeeId, now)
+        attendanceDao.insert(attendance)
+        return attendance
     }
 
-    fun checkOut(employeeId: String, dateTime: LocalDateTime? = null): Pair<Response.Status, Any> {
+    fun checkOut(employeeId: String, dateTime: LocalDateTime? = null): Attendance {
         val today = LocalDate.now()
         val openAttendance = attendanceDao.findOpenAttendanceForToday(employeeId, today)
-            ?: return Response.Status.NOT_FOUND to mapOf("error" to "No active check-in found for today")
+            ?: throw NoSuchElementException("No active check-in found for today")
 
         val now = (dateTime ?: LocalDateTime.now()).withSecond(0).withNano(0)
         openAttendance.checkOut(now)
         attendanceDao.update(openAttendance)
-        return Response.Status.OK to openAttendance
+        return openAttendance
     }
-
 
     fun getAttendance(employeeId: String?, date: LocalDate?): List<Attendance> {
-        return if (employeeId != null && date != null) {
-            attendanceDao.findByEmployeeAndDate(employeeId, date)
-        } else {
-            emptyList()
+        if (employeeId.isNullOrBlank()) {
+            throw IllegalArgumentException("employeeId is required")
         }
-    }
-}
+        if (date == null) {
+            throw IllegalArgumentException("date is required")
+        }
 
+        val list = attendanceDao.findByEmployeeAndDate(employeeId, date)
+        if (list.isEmpty()) {
+            throw NoSuchElementException("No attendance records found")
+        }
+        return list
+    }
+
+}
