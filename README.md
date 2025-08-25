@@ -1,6 +1,6 @@
-###Employee_Attendance_Management_System
+# Employee_Attendance_Management_System
 
-##Overview
+## Overview
 
 This application manages employee attendance using a RESTful API built with Dropwizard and PostgreSQL. It supports employee registration, check-in, check-out, and attendance summaries.
 
