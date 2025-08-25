@@ -8,7 +8,7 @@
 
 - **EmployeeDAO** -> deals with all employee-related database operations
 
-- **AttendanceDAO** -> holds all attendance-related database operations
+- **AttendanceDAO** -> deals with  all attendance-related database operations
 
 After the DAOs are created,
 ### the **EmployeeService** is created:
