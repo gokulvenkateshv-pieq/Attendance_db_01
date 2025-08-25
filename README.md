@@ -1,3 +1,10 @@
+###Employee_Attendance_Management_System
+
+##Overview
+
+This application manages employee attendance using a RESTful API built with Dropwizard and PostgreSQL. It supports employee registration, check-in, check-out, and attendance summaries.
+
+
 ### How it works
 
 - When the app starts (AttendanceApplication) the main function gets executed. It first reads the config.yml file, which contains the server ports and database configuration. This configuration is then mapped to the AttendanceConfiguration class.
